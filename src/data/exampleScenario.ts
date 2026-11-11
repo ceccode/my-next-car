@@ -1,0 +1,52 @@
+import type { SimulationState } from '@/domain/financing/types'
+
+export const exampleScenario: SimulationState = {
+  schemaVersion: 1,
+  vehicle: {
+    name: 'Veicolo di esempio',
+    type: 'other',
+    condition: 'new',
+  },
+  acquisition: {
+    listPrice: 46990,
+    discount: 0,
+    scrappageIncentive: 0,
+    otherIncentives: 0,
+    additionalCosts: 0,
+    tradeInValue: 0,
+    tradeInOutstandingLoan: 0,
+  },
+  shared: { downPayment: 10000, months: 60, tanPercent: 7.49, upfrontFees: 300, monthlyFee: 3 },
+  loan: {
+    downPayment: 10000,
+    months: 60,
+    tanPercent: 7.49,
+    upfrontFees: 300,
+    monthlyFee: 3,
+    quotedTaegPercent: 0,
+  },
+  balloon: {
+    downPayment: 8000,
+    months: 60,
+    tanPercent: 7.49,
+    upfrontFees: 300,
+    monthlyFee: 3,
+    quotedTaegPercent: 0,
+    balloonPayment: 17477,
+    returnOptionEnabled: false,
+    returnFees: 0,
+  },
+  leasing: {
+    mode: 'calculated',
+    initialPayment: 9700,
+    months: 60,
+    tanPercent: 7.49,
+    quotedMonthlyPayment: 545,
+    buyout: 14669,
+    upfrontFees: 300,
+    monthlyFee: 3,
+    quotedTaegPercent: 0,
+    returnOptionEnabled: false,
+    returnFees: 0,
+  },
+}
