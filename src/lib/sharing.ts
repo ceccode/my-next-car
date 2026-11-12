@@ -1,8 +1,12 @@
 import type { SimulationState } from '@/domain/financing/types'
 import { parseSimulation } from './storage'
 
+export function encodeShareHash(state: SimulationState): string {
+  return '#s=' + encodeURIComponent(JSON.stringify(state))
+}
+
 export function buildShareLink(state: SimulationState): string {
-  return location.origin + location.pathname + '#s=' + encodeURIComponent(JSON.stringify(state))
+  return location.origin + location.pathname + encodeShareHash(state)
 }
 
 export function parseShareHash(hash: string): SimulationState | null {
