@@ -1,189 +1,71 @@
-import { lazy, Suspense, useRef, useState } from 'react'
-import { Download, Link, RotateCcw } from 'lucide-react'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { BalloonForm } from '@/components/forms/BalloonForm'
-import { LeasingForm } from '@/components/forms/LeasingForm'
-import { LoanForm } from '@/components/forms/LoanForm'
-import { SharedForm } from '@/components/forms/SharedForm'
-import { TradeInForm } from '@/components/forms/TradeInForm'
-import { VehicleForm } from '@/components/forms/VehicleForm'
-import { ComparisonCards } from '@/components/results/ComparisonCards'
-import { ComparisonTable } from '@/components/results/ComparisonTable'
-import { Explanations } from '@/components/results/Explanations'
-import { Glossary } from '@/components/results/Glossary'
-import { Verdict } from '@/components/results/Verdict'
+import { useMemo, useState } from 'react'
+import { CarFront, Ellipsis } from 'lucide-react'
+import { AdjustmentsSheet } from '@/components/AdjustmentsSheet'
+import { CostRanking } from '@/components/CostRanking'
+import { MenuSheet } from '@/components/MenuSheet'
+import { MethodSheet } from '@/components/MethodSheet'
+import { PriceCard } from '@/components/PriceCard'
+import { QuoteCard } from '@/components/QuoteCard'
+import { QuoteSheet } from '@/components/QuoteSheet'
+import { TermsPanel } from '@/components/TermsPanel'
+import { starterScenario } from '@/data/starterScenario'
+import type { MethodKind } from '@/domain/financing/types'
+import { countAdjustments, maxDownPayment } from '@/domain/scenario/scenario'
 import { useSimulation } from '@/hooks/useSimulation'
-import { buildCsv, downloadCsv } from '@/lib/csv'
-import {
-  APP,
-  EXCLUDED_COSTS_NOTE,
-  EXAMPLE_NOTE,
-  HEADER,
-  METHODS,
-  STEPS,
-  TAN_TAEG_ALERT,
-  TAN_TAEG_ALERT_TITLE,
-} from '@/lib/strings'
+import { APP, NOTES } from '@/lib/strings'
 
-const ChartsSection = lazy(() => import('@/components/charts/ChartsSection'))
-
-function CopyLinkButton({ link }: { link: string }) {
-  const [status, setStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
-  const timer = useRef(0)
-  const onCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(link)
-      setStatus('copied')
-      window.clearTimeout(timer.current)
-      timer.current = window.setTimeout(() => setStatus('idle'), 2000)
-    } catch {
-      setStatus('failed')
-    }
-  }
-  if (status === 'failed') {
-    return (
-      <Input
-        readOnly
-        value={link}
-        aria-label="Link di condivisione"
-        onFocus={(e) => e.currentTarget.select()}
-      />
-    )
-  }
-  return (
-    <Button variant="outline" onClick={onCopy}>
-      <Link aria-hidden />
-      {status === 'copied' ? HEADER.linkCopied : HEADER.copyLink}
-    </Button>
-  )
-}
+type OpenSheet = { name: 'none' } | { name: 'menu' } | { name: 'adjustments' } | { name: 'quote' } | { name: 'method'; kind: MethodKind }
 
 export default function App() {
-  const sim = useSimulation()
-  const { state, result, baseline } = sim
-
-  const onReset = () => {
-    if (window.confirm(HEADER.resetConfirm)) sim.resetExample()
-  }
-  const onExport = () => downloadCsv(buildCsv(state, result), 'my-next-car-confronto.csv')
+  const simulation = useSimulation()
+  const { state, result } = simulation
+  const [sheet, setSheet] = useState<OpenSheet>({ name: 'none' })
+  const closeSheet = () => setSheet({ name: 'none' })
+  const isExample = useMemo(() => JSON.stringify(state) === JSON.stringify(starterScenario), [state])
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b">
-        <div className="mx-auto max-w-7xl px-4 py-6">
-          <h1 className="text-2xl font-semibold">
-            {APP.name}{' '}
-            <span className="text-sm font-normal text-muted-foreground">{APP.descriptor}</span>
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{APP.subtitle}</p>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <CopyLinkButton link={sim.shareLink} />
-            <Button variant="outline" onClick={onExport}>
-              <Download aria-hidden />
-              {HEADER.exportCsv}
-            </Button>
-            <Button variant="outline" onClick={onReset}>
-              <RotateCcw aria-hidden />
-              {HEADER.resetExample}
-            </Button>
-          </div>
-        </div>
+    <div className="min-h-dvh">
+      <header className="mx-auto flex max-w-5xl items-center justify-between px-4 pt-[max(0.5rem,env(safe-area-inset-top))] pb-1.5 sm:px-6 sm:pt-6">
+        <p className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
+          <span className="grid size-9 place-items-center rounded-full bg-surface">
+            <CarFront className="size-5" aria-hidden />
+          </span>
+          {APP.name}
+        </p>
+        <button type="button" onClick={() => setSheet({ name: 'menu' })} className="icon-button" aria-label={APP.menu}>
+          <Ellipsis className="size-5" aria-hidden />
+        </button>
       </header>
-      <main className="mx-auto max-w-7xl gap-8 px-4 py-8 lg:grid lg:grid-cols-[400px_minmax(0,1fr)]">
-        <aside className="mb-8 space-y-8 lg:mb-0 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2">
-          <section aria-labelledby="step-1" className="space-y-4">
-            <h2 id="step-1" className="text-lg font-semibold">
-              {STEPS.vehicle}
-            </h2>
-            <VehicleForm
-              state={state}
-              netPurchasePrice={result.netPurchasePrice}
-              onVehicle={sim.setVehicle}
-              onAcquisition={sim.setAcquisition}
-            />
-          </section>
-          <section aria-labelledby="step-2" className="space-y-4">
-            <h2 id="step-2" className="text-lg font-semibold">
-              {STEPS.tradeIn}
-            </h2>
-            <TradeInForm state={state} tradeInEquity={result.tradeInEquity} onAcquisition={sim.setAcquisition} />
-          </section>
-          <section aria-labelledby="step-3" className="space-y-4">
-            <h2 id="step-3" className="text-lg font-semibold">
-              {STEPS.offers}
-            </h2>
-            {sim.isExample ? <p className="text-xs text-muted-foreground">{EXAMPLE_NOTE}</p> : null}
-            <SharedForm
-              state={state}
-              netPurchasePrice={result.netPurchasePrice}
-              onShared={sim.setShared}
-              onApplyToAll={sim.applySharedToAll}
-            />
-            <Accordion type="single" collapsible defaultValue="loan" className="w-full">
-              <AccordionItem value="loan">
-                <AccordionTrigger>{METHODS.loan}</AccordionTrigger>
-                <AccordionContent>
-                  <LoanForm
-                    state={state}
-                    netPurchasePrice={result.netPurchasePrice}
-                    loan={result.loan}
-                    onLoan={sim.setLoan}
-                  />
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="balloon">
-                <AccordionTrigger>{METHODS.balloon}</AccordionTrigger>
-                <AccordionContent>
-                  <BalloonForm
-                    state={state}
-                    netPurchasePrice={result.netPurchasePrice}
-                    balloon={result.balloon}
-                    onBalloon={sim.setBalloon}
-                  />
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="leasing">
-                <AccordionTrigger>{METHODS.leasing}</AccordionTrigger>
-                <AccordionContent>
-                  <LeasingForm
-                    state={state}
-                    netPurchasePrice={result.netPurchasePrice}
-                    leasing={result.leasing}
-                    onLeasing={sim.setLeasing}
-                  />
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </section>
-        </aside>
-        <div className="space-y-8">
-          <Verdict
-            result={result}
-            hasBaseline={baseline !== null}
-            onSaveScenario={sim.saveScenario}
-            onUpdateScenario={sim.updateScenario}
-            onRemoveScenario={sim.removeScenario}
+
+      <main className="mx-auto grid max-w-5xl gap-4 px-4 pb-60 sm:px-6 md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] md:gap-6 md:pb-12">
+        <h1 className="sr-only">{APP.heading}</h1>
+
+        <div className="md:sticky md:top-6 md:space-y-4 md:self-start">
+          <PriceCard
+            listPrice={state.acquisition.listPrice}
+            netPurchasePrice={result.netPurchasePrice}
+            adjustments={countAdjustments(state)}
+            isExample={isExample}
+            onListPriceChange={simulation.setListPrice}
+            onOpenAdjustments={() => setSheet({ name: 'adjustments' })}
           />
-          <Alert>
-            <AlertDescription>
-              <strong>{TAN_TAEG_ALERT_TITLE}</strong> {TAN_TAEG_ALERT}
-            </AlertDescription>
-          </Alert>
-          <ComparisonCards result={result} baselineResult={sim.baselineResult} />
-          {!result.globalErrors.length ? (
-            <Suspense fallback={<div className="h-[300px]" />}>
-              <ChartsSection state={state} result={result} />
-            </Suspense>
-          ) : null}
-          <Explanations result={result} />
-          <ComparisonTable result={result} />
-          <p className="text-xs text-muted-foreground">{EXCLUDED_COSTS_NOTE}</p>
-          <Glossary />
+          <TermsPanel terms={state.shared} maxDownPayment={maxDownPayment(result)} onChange={simulation.setCommonTerms} />
+        </div>
+
+        <div className="space-y-4">
+          <CostRanking result={result} onOpen={(kind) => setSheet({ name: 'method', kind })} />
+          <QuoteCard onOpen={() => setSheet({ name: 'quote' })} />
+          <p className="px-2 text-sm text-ink-soft">
+            {isExample ? `${NOTES.example} ` : ''}
+            {NOTES.excludedCosts}
+          </p>
         </div>
       </main>
+
+      <MethodSheet kind={sheet.name === 'method' ? sheet.kind : null} simulation={simulation} onClose={closeSheet} />
+      <QuoteSheet open={sheet.name === 'quote'} onClose={closeSheet} onPick={(kind) => setSheet({ name: 'method', kind })} />
+      <AdjustmentsSheet open={sheet.name === 'adjustments'} onClose={closeSheet} simulation={simulation} />
+      <MenuSheet open={sheet.name === 'menu'} onClose={closeSheet} simulation={simulation} />
     </div>
   )
 }

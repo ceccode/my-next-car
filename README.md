@@ -1,91 +1,86 @@
 # My Next Car
 
-## Project overview
+How much will your next car really cost you? My Next Car compares four ways of paying for the same vehicle (cash, a traditional loan, a balloon loan with *maxirata*, and financial leasing) and shows what each one costs **in total**, not just per month.
 
-My Next Car is a frontend-only single-page application for the Italian market that compares four ways of paying for the same vehicle: cash (contanti), traditional loan (finanziamento classico), balloon loan (finanziamento con maxirata) and financial leasing (leasing finanziario). It works for any vehicle that has a purchase price (car, motorcycle, van, new or used).
+It is a mobile-first single-page app for the Italian market. You type the price and move three sliders; everything else is optional. There is no backend: data stays in the browser.
 
-The app has two goals:
+<p>
+  <img src="docs/screenshots/mobile.png" alt="The simulator on a phone: price, the four options ranked by total cost, and the sliders" width="260">
+  <img src="docs/screenshots/mobile-method.png" alt="Detail sheet of the balloon loan" width="260">
+  <img src="docs/screenshots/mobile-quote.png" alt="Choosing which dealer quote to enter" width="260">
+</p>
 
-1. Help the user understand which option is more convenient, given what matters to them: lowest total cost, lowest monthly payment, or lowest cash needed today.
-2. Let the user run simulations: change a value and immediately see how payments, interest and total cost change, and compare against a saved scenario.
+<img src="docs/screenshots/desktop.png" alt="The simulator on a desktop screen" width="800">
 
-There is no backend, no database and no external API. All data lives in the browser (localStorage and the URL hash for sharing).
+## What it does
 
-## Main features
+- **One number to type.** The vehicle price. Down payment, duration and rate (TAN) are sliders, docked under the thumb on phones.
+- **Total cost first.** The four options are ranked by what you pay in total, on one fixed scale that separates the price of the car from interest and fees. Rows slide to their new rank as you move the sliders.
+- **One sentence of advice.** The classic trap gets called out: a lower monthly payment that costs more overall.
+- **Details on demand.** Tap an option to see monthly payment, cash at signing, final payment, interest and fees, and an estimated TAEG. If you have a dealer quote, enter balloon, buyout, quoted lease payment or quoted TAEG there.
+- **Optional extras.** Discounts, incentives, trade-in and financing fees live in one sheet.
+- **Share and export.** Native share sheet (or a copied link with the scenario in the URL), CSV export for Italian spreadsheets, reset.
 
-- Three-step input: vehicle and acquisition, optional trade-in, financing offers (shared values plus one form per method).
-- Immediate results on every change: verdict ("Cosa conviene"), comparison cards, six charts, detailed comparison table and plain-language explanations.
-- Plain-Italian explanations of every financial term (InfoTips, "TAN e TAEG in breve" box, glossary).
-- Estimated TAEG (TAEG stimato) for each financed method, compared with the TAEG of the quote when provided.
-- Optional return option for balloon and leasing, off by default.
-- Saved comparison scenario with per-card differences.
-- Six charts with data tables: total cost, cash timing, residual debt, interest vs principal per month, cumulative outflows, and a what-if sensitivity chart.
-- CSV export formatted for Italian spreadsheet software.
-- Shareable link (simulation state encoded in the URL hash), localStorage persistence, one-click reset to the example scenario.
-- Italian (it-IT) number and currency formatting, amounts in EUR including VAT.
+## Getting started
 
-## Screenshots
-
-_Screenshots to be added._
-
-## Local setup
-
-Prerequisites: Node.js 20 or later.
+Requires Node.js 22 or later.
 
 ```bash
 npm install
 npm run dev
 ```
 
-The app is then served at the local Vite dev URL shown in the terminal.
+| Command           | What it does                               |
+| ----------------- | ------------------------------------------ |
+| `npm run dev`     | Start the Vite dev server                  |
+| `npm test`        | Run the Vitest suite                       |
+| `npm run lint`    | Run oxlint                                 |
+| `npm run build`   | Type-check and build for production        |
+| `npm run preview` | Serve the production build locally         |
 
-## Development commands
+## How the code is organised
 
-| Command           | Description                              |
-|-------------------|------------------------------------------|
-| `npm run dev`     | Start the Vite development server        |
-| `npm run build`   | Type-check (tsc) and build for production |
-| `npm run preview` | Preview the production build locally     |
-| `npm run test`    | Run the Vitest test suite                |
-| `npm run lint`    | Run oxlint                               |
+The rule is simple: **decisions live in plain functions with tests; components only render them.**
 
-## Testing
+```
+src/
+  domain/
+    financing/   The financial engine: amortization, rate solving, validation,
+                 the comparison of the four methods. Integer cents throughout.
+    scenario/    How user input changes a scenario (price, common terms).
+    summary/     What the screen says about a comparison: ranking, the key
+                 insight, the bar scale.
+  lib/           Formatting, parsing, CSV, URL sharing, localStorage, and all
+                 Italian copy in strings.ts.
+  hooks/         useSimulation (state + derived result), useFlip (row animation).
+  components/    Presentational React components, one per file.
+  App.tsx        Composes the screen and decides which sheet is open.
+```
 
-Tests are written in Vitest and cover the financial domain only (`src/domain/financing/*.test.ts`): amortization, rate solving, acquisition math, validation, comparison, explanations, sensitivity and persistence helpers. They compare integer cents exactly and rates with a tolerance of ±0.01. Run them with `npm run test`.
+Every module in `domain/` and `lib/` that makes a decision has a `*.test.ts` next to it. The engine tests compare integer cents exactly and rates within ±0.01.
 
-## Build and deployment (Netlify)
+## Deploying
 
-The repository ships a `netlify.toml`: build command `npm run build`, publish directory `dist`, Node 22, and a SPA redirect. Connect the repository to Netlify and it deploys as-is, or deploy the `dist` folder to any static host.
+`netlify.toml` is ready: build command `npm run build`, publish directory `dist`, Node 22, an SPA fallback and long-lived caching for hashed assets. Connect the repository to Netlify and it deploys as is. Any static host that serves `dist/` works too.
 
 ## Financial assumptions
 
-- The app targets the Italian market and all amounts include VAT (IVA inclusa).
-- Installments are paid monthly in arrears.
-- The final payment (maxirata or riscatto) is due with the last installment.
+- Italian market, amounts in EUR including VAT.
+- Installments are paid monthly in arrears; the final payment (balloon or buyout) comes with the last one.
 - Upfront fees are paid at signing and are not financed.
 - Amounts are rounded to the cent and the last installment absorbs rounding.
-- Leasing is modelled with the same mathematics as a balloon loan.
-- The TAEG stimato is an estimate based on the entered data and is not the official TAEG of a contract.
-- Negative trade-in equity is added to the amount financed.
+- Leasing uses the same mathematics as a balloon loan.
+- The TAEG shown is an estimate from the data entered, not the official contract TAEG.
+- A trade-in worth less than its outstanding loan adds the difference to what you finance.
 
-## Known limitations
+## Out of scope
 
-The comparison covers purchase and financing cost only. The following are out of scope:
+Only purchase and financing costs are compared. Fuel or charging, insurance, maintenance, road tax, depreciation, resale value, opportunity cost and tax rules are not. The app never suggests real offers, rates or incentives: example values are hypothetical and labelled as such.
 
-- Fuel, electricity, insurance, maintenance, road tax (bollo auto), parking, tolls, depreciation, resale value, investment returns, opportunity cost and inflation.
-- Tax rules (for example VAT deduction for businesses).
-- Insurance products bundled with financing.
+## Design
 
-The app never suggests incentive amounts, market rates or real offers: incentives and rates are typed in by the user.
+`PRODUCT.md` records who the product is for and what must stay true. `DESIGN.md` records the visual system (tokens, type, components, rules). `docs/original-brief.md` is the brief the first version was built from.
 
-## Assumptions made during implementation
+## License
 
-- When the estimated TAEG equals the quoted TAEG within the comparison tolerance, the card text says the quote "è in linea con il TAEG stimato" (see `TAEG_COMPARISON.aligned` in `src/lib/strings.ts`).
-- For the cash method with a negative "da versare subito" (trade-in equity higher than the price), the explanations use the absolute value of the amount received.
-- The CSV export writes each block name ("Dati inseriti", "Risultati") as a title line above its header row.
-- The "Spese" row of the comparison table explains the term with the glossary entry "Spese iniziali".
-- Chart 1 and chart 2 use the fixed palette of the spec: blue for net price / amount at signing, amber for interest / monthly installments, gray for fees / final payment; line charts add distinct dash patterns so color is never the only differentiator.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md). In short: user-visible text lives in `src/lib/strings.ts`, all financial logic lives only in `src/domain/financing/` with tests, and `npm run test` plus `npm run build` must pass before submitting changes.
+MIT, see [LICENSE](LICENSE).

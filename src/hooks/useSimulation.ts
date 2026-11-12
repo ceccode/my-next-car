@@ -1,107 +1,47 @@
-import { useEffect, useMemo, useState } from 'react'
-import { exampleScenario } from '@/data/exampleScenario'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { starterScenario } from '@/data/starterScenario'
 import { computeComparison } from '@/domain/financing/comparison'
 import type { SimulationState } from '@/domain/financing/types'
+import { withCommonTerms, withListPrice, type CommonTerms } from '@/domain/scenario/scenario'
 import { buildShareLink, clearHash, readStateFromHash } from '@/lib/sharing'
-import { loadBaseline, loadSimulation, removeBaseline, saveBaseline, saveSimulation } from '@/lib/storage'
+import { loadSimulation, saveSimulation } from '@/lib/storage'
 
 function initialState(): SimulationState {
-  const fromHash = readStateFromHash()
-  if (fromHash) {
+  const shared = readStateFromHash()
+  if (shared) {
     clearHash()
-    return fromHash
+    return shared
   }
-  return loadSimulation() ?? structuredClone(exampleScenario)
+  return loadSimulation() ?? structuredClone(starterScenario)
 }
 
-const clone = (s: SimulationState): SimulationState => structuredClone(s)
+type Section<K extends keyof SimulationState> = Partial<SimulationState[K]>
 
 export function useSimulation() {
-  const [state, setState] = useState<SimulationState>(initialState)
-  const [baseline, setBaseline] = useState<SimulationState | null>(loadBaseline)
+  const [state, setState] = useState(initialState)
+  // Sliders fire many events per second: let React drop stale recalculations.
+  const settledState = useDeferredValue(state)
 
-  useEffect(() => {
-    saveSimulation(state)
-  }, [state])
+  useEffect(() => saveSimulation(settledState), [settledState])
 
-  useEffect(() => {
-    if (baseline) saveBaseline(baseline)
-    else removeBaseline()
-  }, [baseline])
+  const result = useMemo(() => computeComparison(settledState), [settledState])
+  const shareLink = useMemo(() => buildShareLink(settledState), [settledState])
 
-  const result = useMemo(() => computeComparison(state), [state])
-  const baselineResult = useMemo(() => (baseline ? computeComparison(baseline) : null), [baseline])
-  const isExample = useMemo(() => JSON.stringify(state) === JSON.stringify(exampleScenario), [state])
-  const shareLink = useMemo(() => buildShareLink(state), [state])
-
-  const setVehicle = (patch: Partial<SimulationState['vehicle']>) =>
-    setState((s) => ({ ...s, vehicle: { ...s.vehicle, ...patch } }))
-  const setAcquisition = (patch: Partial<SimulationState['acquisition']>) =>
-    setState((s) => ({ ...s, acquisition: { ...s.acquisition, ...patch } }))
-  const setShared = (patch: Partial<SimulationState['shared']>) =>
-    setState((s) => ({ ...s, shared: { ...s.shared, ...patch } }))
-  const setLoan = (patch: Partial<SimulationState['loan']>) =>
-    setState((s) => ({ ...s, loan: { ...s.loan, ...patch } }))
-  const setBalloon = (patch: Partial<SimulationState['balloon']>) =>
-    setState((s) => ({ ...s, balloon: { ...s.balloon, ...patch } }))
-  const setLeasing = (patch: Partial<SimulationState['leasing']>) =>
-    setState((s) => ({ ...s, leasing: { ...s.leasing, ...patch } }))
-
-  const applySharedToAll = () =>
-    setState((s) => ({
-      ...s,
-      loan: {
-        ...s.loan,
-        downPayment: s.shared.downPayment,
-        months: s.shared.months,
-        tanPercent: s.shared.tanPercent,
-        upfrontFees: s.shared.upfrontFees,
-        monthlyFee: s.shared.monthlyFee,
-      },
-      balloon: {
-        ...s.balloon,
-        downPayment: s.shared.downPayment,
-        months: s.shared.months,
-        tanPercent: s.shared.tanPercent,
-        upfrontFees: s.shared.upfrontFees,
-        monthlyFee: s.shared.monthlyFee,
-      },
-      leasing: {
-        ...s.leasing,
-        initialPayment: s.shared.downPayment,
-        months: s.shared.months,
-        tanPercent: s.shared.tanPercent,
-        upfrontFees: s.shared.upfrontFees,
-        monthlyFee: s.shared.monthlyFee,
-      },
-    }))
-
-  const saveScenario = () => setBaseline(clone(state))
-  const updateScenario = () => setBaseline(clone(state))
-  const removeScenario = () => setBaseline(null)
-
-  const resetExample = () => {
-    setState(structuredClone(exampleScenario))
-    setBaseline(null)
-  }
+  const update = <K extends 'acquisition' | 'loan' | 'balloon' | 'leasing'>(key: K) => (changes: Section<K>) =>
+    setState((current) => ({ ...current, [key]: { ...current[key], ...changes } }))
 
   return {
     state,
     result,
-    baseline,
-    baselineResult,
-    isExample,
     shareLink,
-    setVehicle,
-    setAcquisition,
-    setShared,
-    setLoan,
-    setBalloon,
-    setLeasing,
-    applySharedToAll,
-    saveScenario,
-    updateScenario,
-    removeScenario,
-    resetExample,
+    setListPrice: (price: number) => setState((current) => withListPrice(current, price)),
+    setCommonTerms: (changes: Partial<CommonTerms>) => setState((current) => withCommonTerms(current, changes)),
+    setAcquisition: update('acquisition'),
+    setLoan: update('loan'),
+    setBalloon: update('balloon'),
+    setLeasing: update('leasing'),
+    reset: () => setState(structuredClone(starterScenario)),
   }
 }
+
+export type Simulation = ReturnType<typeof useSimulation>

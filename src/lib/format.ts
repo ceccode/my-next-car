@@ -1,22 +1,17 @@
-const moneyFmt = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' })
-const moneyRoundedFmt = new Intl.NumberFormat('it-IT', {
+const euros = new Intl.NumberFormat('it-IT', {
   style: 'currency',
   currency: 'EUR',
   maximumFractionDigits: 0,
+  useGrouping: 'always',
 })
-const percentFmt = new Intl.NumberFormat('it-IT', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-})
+const percent = new Intl.NumberFormat('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-export function formatMoney(cents: number): string {
-  return moneyFmt.format(cents / 100)
-}
-
+/** Whole euros, Italian style: 46.990 €. */
 export function formatMoneyRounded(cents: number): string {
-  return moneyRoundedFmt.format(cents / 100)
+  return euros.format(cents / 100)
 }
 
+/** Two decimals, Italian style: 7,49%. */
 export function formatPercent(value: number): string {
-  return `${percentFmt.format(value)}%`
+  return `${percent.format(value)}%`
 }

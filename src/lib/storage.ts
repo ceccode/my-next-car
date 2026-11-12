@@ -1,7 +1,6 @@
 import type { SimulationState } from '@/domain/financing/types'
 
 export const SIMULATION_KEY = 'my-next-car:simulation:v1'
-export const BASELINE_KEY = 'my-next-car:baseline:v1'
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 const isBool = (v: unknown): v is boolean => typeof v === 'boolean'
@@ -91,32 +90,6 @@ export function loadSimulation(): SimulationState | null {
 export function saveSimulation(state: SimulationState): void {
   try {
     window.localStorage.setItem(SIMULATION_KEY, JSON.stringify(state))
-  } catch {
-    // storage unavailable
-  }
-}
-
-export function loadBaseline(): SimulationState | null {
-  try {
-    const raw = window.localStorage.getItem(BASELINE_KEY)
-    if (raw === null) return null
-    return parseSimulation(JSON.parse(raw))
-  } catch {
-    return null
-  }
-}
-
-export function saveBaseline(state: SimulationState): void {
-  try {
-    window.localStorage.setItem(BASELINE_KEY, JSON.stringify(state))
-  } catch {
-    // storage unavailable
-  }
-}
-
-export function removeBaseline(): void {
-  try {
-    window.localStorage.removeItem(BASELINE_KEY)
   } catch {
     // storage unavailable
   }
